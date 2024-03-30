@@ -1,6 +1,7 @@
 package com.example.productservice.services;
 
 import com.example.productservice.dtos.FakeStoreProductDto;
+import com.example.productservice.exceptions.ProductNotFoundException;
 import com.example.productservice.models.Category;
 import com.example.productservice.models.Product;
 import org.springframework.http.*;
@@ -33,12 +34,12 @@ public class FakeStoreProductService implements ProductService {
     }
 
     @Override
-    public ResponseEntity<Product> getProductById(Long id) {
+    public ResponseEntity<Product> getProductById(Long id) throws ProductNotFoundException {
 
         RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(null, HttpMethod.GET,
                 URI.create("https://fakestoreapi.com/products/" + id));
 
-        return getProductResponseEntity(entity);
+        return getProductResponseEntity(id, entity);
     }
 
     @Override
@@ -73,55 +74,42 @@ public class FakeStoreProductService implements ProductService {
     }
 
     @Override
-    public ResponseEntity<Product> createProduct(Product product) {
+    public ResponseEntity<Product> createProduct(Product product) throws ProductNotFoundException {
 
-        try {
+        FakeStoreProductDto dto = new FakeStoreProductDto();
+        dto.setTitle(product.getTitle());
+        dto.setPrice(product.getPrice());
+        dto.setDescription(product.getDescription());
+        dto.setImage(product.getImage());
+        dto.setCategory(product.getCategory().getDescription());
 
-            FakeStoreProductDto dto = new FakeStoreProductDto();
-            dto.setTitle(product.getTitle());
-            dto.setPrice(product.getPrice());
-            dto.setDescription(product.getDescription());
-            dto.setImage(product.getImage());
-            dto.setCategory(product.getCategory().getDescription());
+        RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(dto, HttpMethod.POST,
+                URI.create("https://fakestoreapi.com/products"));
 
-            RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(dto, HttpMethod.POST,
-                    URI.create("https://fakestoreapi.com/products"));
-
-            return getProductResponseEntity(entity);
-
-        }
-        catch (Exception ex) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        return getProductResponseEntity(-1L, entity);
     }
 
     @Override
-    public ResponseEntity<Product> replaceProduct(Long id, Product product) {
+    public ResponseEntity<Product> replaceProduct(Long id, Product product) throws ProductNotFoundException {
 
-        try {
+        FakeStoreProductDto dto = new FakeStoreProductDto();
+        dto.setTitle(product.getTitle());
+        dto.setImage(product.getImage());
+        dto.setDescription(product.getDescription());
 
-            FakeStoreProductDto dto = new FakeStoreProductDto();
-            dto.setTitle(product.getTitle());
-            dto.setImage(product.getImage());
-            dto.setDescription(product.getDescription());
+        RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(dto, HttpMethod.PUT,
+                URI.create("https://fakestoreapi.com/products/" + id));
 
-            RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(dto, HttpMethod.PUT,
-                    URI.create("https://fakestoreapi.com/products/" + id));
-
-            return getProductResponseEntity(entity);
-
-        } catch (Exception ex) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        return getProductResponseEntity(id, entity);
     }
 
     @Override
-    public ResponseEntity<Product> deleteProduct(Long id) {
+    public ResponseEntity<Product> deleteProduct(Long id) throws ProductNotFoundException {
 
         RequestEntity<FakeStoreProductDto> entity = new RequestEntity<>(null, HttpMethod.DELETE,
                 URI.create("https://fakestoreapi.com/products/" + id));
 
-        return getProductResponseEntity(entity);
+        return getProductResponseEntity(id, entity);
     }
 
     private Product convertFakeStoreProductDtoToProduct(FakeStoreProductDto dto) {
@@ -174,12 +162,12 @@ public class FakeStoreProductService implements ProductService {
         return categories;
     }
 
-    private ResponseEntity<Product> getProductResponseEntity(RequestEntity<FakeStoreProductDto> entity) {
+    private ResponseEntity<Product> getProductResponseEntity(Long id, RequestEntity<FakeStoreProductDto> entity) throws ProductNotFoundException {
 
         ResponseEntity<FakeStoreProductDto> response = restTemplate.exchange(entity, FakeStoreProductDto.class);
 
         if(response.getBody() == null) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            throw new ProductNotFoundException(id, entity.getMethod(), "No response for Product ID " + id);
         }
 
         Product outProduct = convertFakeStoreProductDtoToProduct(response.getBody());
